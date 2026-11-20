@@ -1,0 +1,47 @@
+name: Build Crypto Radar APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.5'
+          channel: stable
+          cache: true
+
+      - name: Generer le projet Android
+        run: |
+          flutter create --org com.cryptoradar --project-name crypto_radar --platforms=android _gen
+          rm -rf android
+          cp -r _gen/android ./android
+          rm -rf _gen
+
+      - name: Patcher Android (permissions, service, notifications)
+        run: python3 scripts/patch_android.py
+
+      - name: Dependances
+        run: flutter pub get
+
+      - name: Compiler l APK (arm64)
+        run: flutter build apk --release --target-platform android-arm64
+
+      - name: Publier l APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: crypto-radar-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 30
